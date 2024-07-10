@@ -517,8 +517,13 @@ class InventoryApp(QMainWindow):
                         color = color_entry.text()
                         stock = stock_entry.text()
 
-                        if color and stock.isdigit() and int(stock) > 0:
-                            colors[color] = int(stock)
+                        if color and stock.isdigit():
+                            stock_quantity = int(stock)
+                            if stock_quantity >= 0:
+                                colors[color] = stock_quantity
+                            else:
+                                valid = False
+                                break
                         elif color or stock:
                             valid = False
                             break
@@ -594,10 +599,15 @@ class InventoryApp(QMainWindow):
             product = self.inventory_df.iloc[index]
             for (model, color), stock_entry in self.add_stock_entries.items():
                 stock = stock_entry.text()
-                if stock.isdigit() and int(stock) > 0:
-                    self.inventory_df.at[index, 'Data'][model]['Colors'][color] += int(stock)
+                if stock.isdigit():
+                    stock_quantity = int(stock)
+                    if stock_quantity >= 0:
+                        self.inventory_df.at[index, 'Data'][model]['Colors'][color] += stock_quantity
+                    else:
+                        QMessageBox.warning(self, "Error", "Please enter a non-negative stock quantity for the selected model and color.")
+                        return
                 elif stock:
-                    QMessageBox.warning(self, "Error", f"Please enter a valid stock quantity for {model} - {color}.")
+                    QMessageBox.warning(self, "Error", "Please enter a valid stock quantity for the selected model and color.")
                     return
 
             self.save_inventory()
@@ -764,8 +774,13 @@ class InventoryApp(QMainWindow):
                         color = color_entry.text()
                         stock = stock_entry.text()
 
-                        if color and stock.isdigit() and int(stock) > 0:
-                            colors[color] = int(stock)
+                        if color and stock.isdigit():
+                            stock_quantity = int(stock)
+                            if stock_quantity >= 0:
+                                colors[color] = stock_quantity
+                            else:
+                                valid = False
+                                break
                         elif color or stock:
                             valid = False
                             break
