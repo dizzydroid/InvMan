@@ -58,7 +58,7 @@ To install and run InvMan from source, follow these steps:
 
 If you are running from source, the following dependencies are required:
 
-- Python
+- Python (*obviously*)
 - PyQt5
 - pandas
 - openpyxl
@@ -85,7 +85,7 @@ Upon launching the app, you will be presented with a search bar and filter optio
 2. Select the start and end dates.
 3. Click "Track Performance" to view the net profit for the selected period.
 
-## Found Bugs 🐞
+## Found Bugs? 🐞
 
 If you encounter any bugs, please report them by creating an issue on the [GitHub Issues](https://github.com/dizzydroid/InvMan/issues) page.
 
