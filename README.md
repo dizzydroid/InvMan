@@ -5,6 +5,8 @@
 </div>
 
 InvMan is a comprehensive inventory management application built with PyQt5. It helps businesses manage their inventory, track performance, and process orders and refunds efficiently.
+> [!NOTE]  
+> InvMan is *currently* tailored for mobile phone shops, but it can be easily adapted for other types of businesses.
 
 ## Features ✨
 
