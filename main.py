@@ -189,11 +189,12 @@ class InventoryApp(QMainWindow):
         try:
             if os.path.exists(self.order_file):
                 self.orders_df = pd.read_excel(self.order_file)
+                self.orders_df = self.orders_df[['Order Name','Product Name', 'Model', 'Color', 'Quantity', 'Date', 'Unit Price', 'Model Fee', 'Shipping Fee', 'Total Price', 'Net Profit', 'Status']]
             else:
-                self.orders_df = pd.DataFrame(columns=['Order Name', 'Product Name', 'Date', 'Quantity', 'Total Price', 'Status'])
+                self.orders_df = pd.DataFrame(columns=['Order Name','Product Name', 'Model', 'Color', 'Quantity', 'Date', 'Unit Price', 'Model Fee', 'Shipping Fee', 'Total Price', 'Net Profit', 'Status'])
         except Exception as e:
             print(f"Error loading orders: {e}")
-
+            
     def save_orders(self):
         try:
             self.orders_df.to_excel(self.order_file, index=False)
@@ -341,16 +342,20 @@ class InventoryApp(QMainWindow):
             self.refund_window.setGeometry(200, 200, 400, 400)
 
             layout = QVBoxLayout()
-
+            
             refund_layout = QGridLayout()
 
             refund_details_label = QLabel("Refund Details:", self.refund_window)
+            
+            self.refund_shipping_fee_entry = QLineEdit(self.refund_window)
+            self.refund_shipping_fee_entry.setPlaceholderText("Refund Shipping Fee")
+            layout.addWidget(self.refund_shipping_fee_entry)
+
             self.refund_quantity_entry = QLineEdit(self.refund_window)
             self.refund_quantity_entry.setPlaceholderText("Quantity to Refund")
-            
             refund_layout.addWidget(refund_details_label, 0, 0)
             refund_layout.addWidget(self.refund_quantity_entry, 0, 1)
-
+            
             self.refund_model_combobox = QComboBox(self.refund_window)
             self.refund_model_combobox.addItems(product['Data'].keys())
             self.refund_model_combobox.currentTextChanged.connect(lambda: self.update_refund_colors(product))
@@ -379,23 +384,35 @@ class InventoryApp(QMainWindow):
             refund_quantity = self.refund_quantity_entry.text()
             selected_model = self.refund_model_combobox.currentText()
             selected_color = self.refund_colors_combobox.currentText()
+            refund_shipping_fee = self.refund_shipping_fee_entry.text()
 
             if refund_quantity.isdigit() and int(refund_quantity) > 0:
                 refund_quantity = int(refund_quantity)
                 unit_price = product['Data'][selected_model]['Price']
-                total_price = unit_price * refund_quantity
+                model_fee = product['Data'][selected_model].get('Fee', 0)
 
-                self.inventory_df.at[index, 'Data'][selected_model]['Colors'][selected_color] += refund_quantity
-                self.save_inventory()
+                if refund_shipping_fee.isdigit() and int(refund_shipping_fee) >= 0:
+                    refund_shipping_fee = int(refund_shipping_fee)
+                    total_price_without_shipping = unit_price * refund_quantity
+                    total_price = refund_shipping_fee
+                    net_profit = (unit_price - model_fee) * refund_quantity
 
-                # Update the order sheet to mark it as refunded
-                order_name = f"Refund-{product['Item Name']}-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
-                new_order = pd.DataFrame([[order_name, product['Item Name'], datetime.datetime.now().strftime('%Y-%m-%d %I:%M:%S %p'), -refund_quantity, -total_price, 'REFUNDED']], columns=['Order Name', 'Product Name', 'Date', 'Quantity', 'Total Price', 'Status'])
-                self.orders_df = pd.concat([self.orders_df, new_order], ignore_index=True)
-                self.save_orders()
+                    if product['Data'][selected_model]['Colors'][selected_color] >= refund_quantity:
+                        product['Data'][selected_model]['Colors'][selected_color] += refund_quantity
+                        self.save_inventory()
 
-                QMessageBox.information(self, "Success", "Refund processed successfully.")
-                self.refund_window.close()
+                        # Update the order sheet to mark it as refunded
+                        order_name = f"Refund-{product['Item Name']}-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                        new_order = pd.DataFrame([[order_name, product['Item Name'], selected_model, selected_color, -refund_quantity, datetime.datetime.now().strftime('%Y-%m-%d %I:%M:%S %p'), unit_price, model_fee, refund_shipping_fee, total_price, -net_profit, 'REFUNDED']], columns=['Order Name', 'Product Name', 'Model', 'Color', 'Quantity', 'Date', 'Unit Price', 'Model Fee', 'Shipping Fee', 'Total Price', 'Net Profit', 'Status'])
+                        self.orders_df = pd.concat([self.orders_df, new_order], ignore_index=True)
+                        self.save_orders()
+
+                        QMessageBox.information(self, "Success", "Refund processed successfully.")
+                        self.refund_window.close()
+                    else:
+                        QMessageBox.warning(self, "Error", "Insufficient stock for the refund.")
+                else:
+                    QMessageBox.warning(self, "Error", "Please enter a valid refund shipping fee.")
             else:
                 QMessageBox.warning(self, "Error", "Please enter a valid refund quantity.")
         except Exception as e:
@@ -652,7 +669,7 @@ class InventoryApp(QMainWindow):
 
             self.edit_data_layout = QVBoxLayout()
             self.edit_model_fields = []
-
+   
             for model, model_data in product['Data'].items():
                 model_layout = QVBoxLayout()
 
@@ -663,6 +680,7 @@ class InventoryApp(QMainWindow):
                 model_price_entry = QLineEdit(self.edit_window)
                 model_price_entry.setText(str(model_data['Price']))
                 model_layout.addWidget(model_price_entry)
+
 
                 model_fee_entry = QLineEdit(self.edit_window)
                 model_fee_entry.setText(str(model_data.get('Fee', 0)))
@@ -689,7 +707,7 @@ class InventoryApp(QMainWindow):
                 add_color_button.setObjectName("addColorButton")
 
                 self.edit_data_layout.addLayout(model_layout)
-                self.edit_model_fields.append((model_name_entry, model_price_entry, model_fee_entry, colors_layout))
+                self.edit_model_fields.append((model_name_entry, model_price_entry, colors_layout))
 
             models_container = QWidget()
             models_container.setLayout(self.edit_data_layout)
@@ -884,7 +902,6 @@ class InventoryApp(QMainWindow):
         except Exception as e:
             print(f"Error in order_product: {e}")
 
-
     def update_order_colors(self, product):
         model = self.order_model_combobox.currentText()
         self.order_colors_combobox.clear()
@@ -905,21 +922,23 @@ class InventoryApp(QMainWindow):
                 order_quantity = int(order_quantity)
                 unit_price = product['Data'][selected_model]['Price']
                 model_fee = product['Data'][selected_model].get('Fee', 0)
-                total_price = (unit_price + model_fee) * order_quantity
-
+                total_price_without_shipping = unit_price * order_quantity
+                total_price = total_price_without_shipping
                 if shipping_fee:
                     shipping_fee = float(shipping_fee)
                     total_price += shipping_fee
+
+                net_profit = (unit_price - model_fee) * order_quantity
 
                 if product['Data'][selected_model]['Colors'][selected_color] >= order_quantity:
                     self.inventory_df.at[index, 'Data'][selected_model]['Colors'][selected_color] -= order_quantity
                     self.save_inventory()
 
-                    new_order = pd.DataFrame([[order_name, product['Item Name'], order_date, order_quantity, total_price, 'ORDERED']], columns=['Order Name', 'Product Name', 'Date', 'Quantity', 'Total Price', 'Status'])
+                    new_order = pd.DataFrame([[order_name, product['Item Name'], selected_model, selected_color, order_quantity, order_date, unit_price, model_fee, shipping_fee, total_price, net_profit, 'ORDERED']], columns=['Order Name', 'Product Name', 'Model', 'Color', 'Quantity', 'Date', 'Unit Price', 'Model Fee', 'Shipping Fee', 'Total Price', 'Net Profit', 'Status'])
                     self.orders_df = pd.concat([self.orders_df, new_order], ignore_index=True)
                     self.save_orders()
 
-                    receipt = f"Product Name: {product['Item Name']}\nOrder Name: {order_name}\nDate: {order_date}\nQuantity: {order_quantity}\nModel: {selected_model}\nColor: {selected_color}\nTotal Price: ${total_price:.2f}"
+                    receipt = f"Order Name: {order_name}\nProduct Name: {product['Item Name']}\nModel: {selected_model}\nColor: {selected_color}\nQuantity: {order_quantity}\nDate: {order_date}\nUnit Price: ${unit_price:.2f}\nModel Fee: ${model_fee:.2f}\nShipping Fee: ${shipping_fee:.2f}\nTotal Price: ${total_price:.2f}\nNet Profit: ${net_profit:.2f}\nStatus: ORDERED"
                     QMessageBox.information(self, "Receipt", receipt)
                     self.order_window.close()
                 else:
