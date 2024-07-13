@@ -1176,54 +1176,40 @@ class InventoryApp(QMainWindow):
                 QMessageBox.warning(self, "Error", "No orders to track performance.")
                 return
 
-            # Convert QDate to datetime
             start_date = self.start_date_edit.date().toPyDate()
             end_date = self.end_date_edit.date().toPyDate()
 
-            # Convert to datetime with time for comparison
             start_date = pd.to_datetime(start_date)
             end_date = pd.to_datetime(end_date) + pd.Timedelta(days=1)
 
             print(f"Tracking performance from {start_date} to {end_date}")
 
-            # Ensure Date column is in datetime format
             self.orders_df['Date'] = pd.to_datetime(self.orders_df['Date'], format='%Y-%m-%d %I:%M:%S %p')
 
-            new_orders = self.orders_df[
-                (self.orders_df['Status'] == 'ORDERED') &
-                (self.orders_df['Date'].between(start_date, end_date))
-            ]
-            new_refunds = self.orders_df[
-                (self.orders_df['Status'] == 'REFUNDED') &
-                (self.orders_df['Date'].between(start_date, end_date))
-            ]
+            filtered_orders = self.orders_df[(self.orders_df['Date'].between(start_date, end_date))]
 
-            print("New Orders:")
-            print(new_orders)
-            print("New Refunds:")
-            print(new_refunds)
+            total_net_profit = 0
 
-            total_revenue = new_orders['Total Price'].sum()
-            total_refunds = new_refunds['Total Price'].sum()
-            net_profit = total_revenue + total_refunds  # Refunds are stored as negative values
+            for index, row in filtered_orders.iterrows():
+                if row['Status'] == 'ORDERED':
+                    total_net_profit += row['Net Profit']
+                elif row['Status'] == 'REFUNDED':
+                    total_net_profit -= abs(row['Net Profit'])
 
             performance_entry = pd.DataFrame([{
                 'Start Date': start_date.strftime('%d/%m/%Y'),
                 'End Date': end_date.strftime('%d/%m/%Y'),
-                'Net Profit': net_profit,
+                'Net Profit': total_net_profit,
                 'Tracked On': datetime.datetime.now().strftime('%d/%m/%Y %I:%M:%S %p')
             }])
 
             self.save_performance(performance_entry)
 
-            QMessageBox.information(self, "Performance Tracked", f"Performance tracked from {start_date.strftime('%d/%m/%Y')} to {end_date.strftime('%d/%m/%Y')}.\nNet Profit: ${net_profit:.2f}")
+            QMessageBox.information(self, "Performance Tracked", f"Performance tracked from {start_date.strftime('%d/%m/%Y')} to {end_date.strftime('%d/%m/%Y')}.\nNet Profit: ${total_net_profit:.2f}")
             self.performance_window.close()
         except Exception as e:
             print(f"Error tracking performance: {e}")
-
-
-
-
+        
     def save_performance(self, performance_entry):
         try:
             performance_file = self.performance_file
@@ -1255,6 +1241,12 @@ class InventoryApp(QMainWindow):
                         pass
                 adjusted_width = (max_length + 2)
                 sheet.column_dimensions[column[0].column_letter].width = adjusted_width
+
+            # Add this block to center-align the 'Net Profit' column
+            for col in sheet.columns:
+                if col[0].value == 'Net Profit':
+                    for cell in col:
+                        cell.alignment = openpyxl.styles.Alignment(horizontal='center')
 
             workbook.save(performance_file)
         except Exception as e:
