@@ -111,6 +111,10 @@ class InventoryApp(QMainWindow):
                 background-color: #6A5ACD;
                 color: white;
             }
+            QPushButton#viewAllDetailsButton {
+            background-color: #4CAF50;
+            color: white;
+            }
         """)
 
         layout = QVBoxLayout()
@@ -154,6 +158,18 @@ class InventoryApp(QMainWindow):
         track_performance_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         track_performance_button.clicked.connect(self.open_performance_window)
         button_layout.addWidget(track_performance_button)
+
+        view_all_details_button = QPushButton("View All Details", self)
+        view_all_details_button.setObjectName("viewAllDetailsButton")
+        view_all_details_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        view_all_details_button.clicked.connect(self.view_all_details)
+        button_layout.addWidget(view_all_details_button)
+
+        best_worst_sellers_button = QPushButton("Best/Worst Sellers", self)
+        best_worst_sellers_button.setObjectName("bestWorstSellersButton")
+        best_worst_sellers_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        best_worst_sellers_button.clicked.connect(self.view_best_worst_sellers)
+        button_layout.addWidget(best_worst_sellers_button)
 
         layout.addLayout(button_layout)
 
@@ -296,12 +312,12 @@ class InventoryApp(QMainWindow):
             product = self.inventory_df.iloc[index]
             details_window = QDialog(self)
             details_window.setWindowTitle(f"Details for {product['Item Name']}")
-            details_window.setGeometry(300, 300, 500, 100)
+            details_window.setGeometry(300, 300, 500, 300)
 
             layout = QVBoxLayout()
 
-            layout.addWidget(QLabel(f"Name: {product['Item Name']}", self))
-            layout.addWidget(QLabel(f"Category: {product['Category']}", self))
+            layout.addWidget(QLabel(f"<b>Name:</b> <span style='color:blue;'>{product['Item Name']}</span>", self))
+            layout.addWidget(QLabel(f"<b>Category:</b> <span style='color:green;'>{product['Category']}</span>", self))
 
             self.model_combobox = QComboBox(details_window)
             self.model_combobox.addItems(product['Data'].keys())
@@ -329,8 +345,14 @@ class InventoryApp(QMainWindow):
             model_data = product['Data'][model]
             price = model_data.get("Price", 0)
             fee = model_data.get("Fee", 0)
+            units_sold = model_data.get("Units Sold", 0)
             colors = "\n".join([f"{color}: {stock}" for color, stock in model_data.get("Colors", {}).items()])
-            details_label = QLabel(f"Model: {model}\nPrice: ${price:.2f}\nFee: ${fee:.2f}\nColors and Stock:\n{colors}", self)
+            details_label = QLabel(f"Model: {model}<br>"
+                                f"Price: <span style='color:red;'>${price:.2f}</span><br>"
+                                f"Fee: <span style='color:orange;'>${fee:.2f}</span><br>"
+                                f"Units Sold: <span style='color:purple;'>{units_sold}</span><br>"
+                                f"Colors and Stock:<br>{colors}", self)
+            details_label.setTextFormat(Qt.RichText)
             self.model_details_layout.addWidget(details_label)
 
 
@@ -932,6 +954,9 @@ class InventoryApp(QMainWindow):
 
                 if product['Data'][selected_model]['Colors'][selected_color] >= order_quantity:
                     self.inventory_df.at[index, 'Data'][selected_model]['Colors'][selected_color] -= order_quantity
+                    # Update units sold
+                    self.inventory_df.at[index, 'Data'][selected_model]['Units Sold'] = self.inventory_df.at[index, 'Data'][selected_model].get('Units Sold', 0) + order_quantity
+
                     self.save_inventory()
 
                     new_order = pd.DataFrame([[order_name, product['Item Name'], selected_model, selected_color, order_quantity, order_date, unit_price, model_fee, shipping_fee, total_price, net_profit, 'ORDERED']], columns=['Order Name', 'Product Name', 'Model', 'Color', 'Quantity', 'Date', 'Unit Price', 'Model Fee', 'Shipping Fee', 'Total Price', 'Net Profit', 'Status'])
@@ -1023,6 +1048,95 @@ class InventoryApp(QMainWindow):
             self.performance_window.exec_()
         except Exception as e:
             print(f"Error opening performance window: {e}")
+
+    def view_all_details(self):
+        try:
+            details_window = QDialog(self)
+            details_window.setWindowTitle("All Product Details")
+            details_window.setGeometry(300, 300, 800, 600)
+
+            layout = QVBoxLayout()
+
+            scroll_area = QScrollArea(details_window)
+            scroll_area.setWidgetResizable(True)
+            scroll_content = QWidget()
+            scroll_layout = QVBoxLayout(scroll_content)
+
+            all_details_text = ""
+
+            for index, product in self.inventory_df.iterrows():
+                all_details_text += f"<b>Product:</b> {product['Item Name']}<br>"
+                all_details_text += f"<b>Category:</b> {product['Category']}<br>"
+                for model, model_data in product['Data'].items():
+                    all_details_text += f"<b>Model:</b> {model}<br>"
+                    all_details_text += f"<b>Price:</b> ${model_data['Price']}<br>"
+                    all_details_text += f"<b>Fee:</b> ${model_data.get('Fee', 0)}<br>"
+                    all_details_text += f"<b>Units Sold:</b> {model_data.get('Units Sold', 0)}<br>"
+                    all_details_text += "<b>Colors and Stock:</b><br>"
+                    for color, stock in model_data['Colors'].items():
+                        all_details_text += f"{color}: {stock}<br>"
+                    all_details_text += "<br>"
+
+            details_label = QLabel(all_details_text)
+            details_label.setTextFormat(Qt.RichText)
+            scroll_layout.addWidget(details_label)
+
+            scroll_area.setWidget(scroll_content)
+            layout.addWidget(scroll_area)
+
+            details_window.setLayout(layout)
+            details_window.exec_()
+        except Exception as e:
+            print(f"Error viewing all details: {e}")
+
+
+    def view_best_worst_sellers(self):
+        try:
+            best_worst_window = QDialog(self)
+            best_worst_window.setWindowTitle("Best and Worst Sellers")
+            best_worst_window.setGeometry(300, 300, 800, 600)
+
+            layout = QVBoxLayout()
+
+            scroll_area = QScrollArea(best_worst_window)
+            scroll_area.setWidgetResizable(True)
+            scroll_content = QWidget()
+            scroll_layout = QVBoxLayout(scroll_content)
+
+            all_models = []
+            for index, row in self.inventory_df.iterrows():
+                product_name = row['Item Name']
+                for model, model_data in row['Data'].items():
+                    all_models.append({
+                        'Product Name': product_name,
+                        'Model': model,
+                        'Units Sold': model_data.get('Units Sold', 0)
+                    })
+
+            models_df = pd.DataFrame(all_models)
+            best_sellers = models_df.nlargest(3, 'Units Sold')
+            worst_sellers = models_df.nsmallest(3, 'Units Sold')
+
+            best_sellers_text = "<b>Best Sellers:</b><br>"
+            for index, row in best_sellers.iterrows():
+                best_sellers_text += f"Product: {row['Product Name']}<br>Model: {row['Model']}<br>Units Sold: {row['Units Sold']}<br><br>"
+
+            worst_sellers_text = "<b>Worst Sellers:</b><br>"
+            for index, row in worst_sellers.iterrows():
+                worst_sellers_text += f"Product: {row['Product Name']}<br>Model: {row['Model']}<br>Units Sold: {row['Units Sold']}<br><br>"
+
+            details_label = QLabel(best_sellers_text + "<br>" + worst_sellers_text)
+            details_label.setTextFormat(Qt.RichText)
+            scroll_layout.addWidget(details_label)
+
+            scroll_area.setWidget(scroll_content)
+            layout.addWidget(scroll_area)
+
+            best_worst_window.setLayout(layout)
+            best_worst_window.exec_()
+        except Exception as e:
+            print(f"Error viewing best/worst sellers: {e}")
+
 
 
     def format_orders_sheet(self):
