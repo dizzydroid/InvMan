@@ -342,20 +342,27 @@ class InventoryApp(QMainWindow):
 
             layout = QVBoxLayout()
 
-            layout.addWidget(QLabel("Refund Details:", self))
+            refund_layout = QGridLayout()
+
+            refund_details_label = QLabel("Refund Details:", self.refund_window)
             self.refund_quantity_entry = QLineEdit(self.refund_window)
             self.refund_quantity_entry.setPlaceholderText("Quantity to Refund")
-            layout.addWidget(self.refund_quantity_entry)
+            
+            refund_layout.addWidget(refund_details_label, 0, 0)
+            refund_layout.addWidget(self.refund_quantity_entry, 0, 1)
 
             self.refund_model_combobox = QComboBox(self.refund_window)
             self.refund_model_combobox.addItems(product['Data'].keys())
             self.refund_model_combobox.currentTextChanged.connect(lambda: self.update_refund_colors(product))
-            layout.addWidget(self.refund_model_combobox)
+            refund_layout.addWidget(QLabel("Model", self.refund_window), 1, 0)
+            refund_layout.addWidget(self.refund_model_combobox, 1, 1)
 
             self.refund_colors_combobox = QComboBox(self.refund_window)
-            layout.addWidget(self.refund_colors_combobox)
+            refund_layout.addWidget(QLabel("Color", self.refund_window), 2, 0)
+            refund_layout.addWidget(self.refund_colors_combobox, 2, 1)
             self.update_refund_colors(product)
 
+            layout.addLayout(refund_layout)
             refund_button = QPushButton("Refund", self.refund_window)
             refund_button.setObjectName("refundButton")
             refund_button.clicked.connect(lambda: self.process_refund(index))
@@ -657,6 +664,9 @@ class InventoryApp(QMainWindow):
                 model_price_entry.setText(str(model_data['Price']))
                 model_layout.addWidget(model_price_entry)
 
+                model_fee_entry = QLineEdit(self.edit_window)
+                model_fee_entry.setText(str(model_data.get('Fee', 0)))
+                model_layout.addWidget(model_fee_entry)
                 colors_layout = QVBoxLayout()
 
                 for color, stock in model_data['Colors'].items():
@@ -679,7 +689,7 @@ class InventoryApp(QMainWindow):
                 add_color_button.setObjectName("addColorButton")
 
                 self.edit_data_layout.addLayout(model_layout)
-                self.edit_model_fields.append((model_name_entry, model_price_entry, colors_layout))
+                self.edit_model_fields.append((model_name_entry, model_price_entry, model_fee_entry, colors_layout))
 
             models_container = QWidget()
             models_container.setLayout(self.edit_data_layout)
@@ -832,28 +842,38 @@ class InventoryApp(QMainWindow):
 
             layout = QVBoxLayout()
 
-            layout.addWidget(QLabel("Shipping Fee (optional):", self))
+            order_layout = QGridLayout()
+
+            shipping_fee_label = QLabel("Shipping Fee (optional):", self.order_window)
             self.shipping_fee_entry = QLineEdit(self.order_window)
             self.shipping_fee_entry.setPlaceholderText("Shipping Fee")
-            layout.addWidget(self.shipping_fee_entry)
+            order_layout.addWidget(shipping_fee_label, 0, 0)
+            order_layout.addWidget(self.shipping_fee_entry, 0, 1)
 
+            quantity_label = QLabel("Quantity to Order", self.order_window)
             self.order_quantity_entry = QLineEdit(self.order_window)
             self.order_quantity_entry.setPlaceholderText("Quantity to Order")
-            layout.addWidget(self.order_quantity_entry)
+            order_layout.addWidget(quantity_label, 1, 0)
+            order_layout.addWidget(self.order_quantity_entry, 1, 1)
 
+            order_name_label = QLabel("Order Name (optional)", self.order_window)
             self.order_name_entry = QLineEdit(self.order_window)
             self.order_name_entry.setPlaceholderText("Order Name (optional)")
-            layout.addWidget(self.order_name_entry)
+            order_layout.addWidget(order_name_label, 2, 0)
+            order_layout.addWidget(self.order_name_entry, 2, 1)
 
             self.order_model_combobox = QComboBox(self.order_window)
             self.order_model_combobox.addItems(product['Data'].keys())
             self.order_model_combobox.currentTextChanged.connect(lambda: self.update_order_colors(product))
-            layout.addWidget(self.order_model_combobox)
+            order_layout.addWidget(QLabel("Model", self.order_window), 3, 0)
+            order_layout.addWidget(self.order_model_combobox, 3, 1)
 
             self.order_colors_combobox = QComboBox(self.order_window)
-            layout.addWidget(self.order_colors_combobox)
+            order_layout.addWidget(QLabel("Color", self.order_window), 4, 0)
+            order_layout.addWidget(self.order_colors_combobox, 4, 1)
             self.update_order_colors(product)
 
+            layout.addLayout(order_layout)
             order_button = QPushButton("Order", self.order_window)
             order_button.setObjectName("orderButton")
             order_button.clicked.connect(lambda: self.generate_receipt(index))
@@ -863,6 +883,7 @@ class InventoryApp(QMainWindow):
             self.order_window.exec_()
         except Exception as e:
             print(f"Error in order_product: {e}")
+
 
     def update_order_colors(self, product):
         model = self.order_model_combobox.currentText()
