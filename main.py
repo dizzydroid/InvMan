@@ -327,9 +327,11 @@ class InventoryApp(QMainWindow):
         if model in product['Data']:
             model_data = product['Data'][model]
             price = model_data.get("Price", 0)
+            fee = model_data.get("Fee", 0)
             colors = "\n".join([f"{color}: {stock}" for color, stock in model_data.get("Colors", {}).items()])
-            details_label = QLabel(f"Model: {model}\nPrice: ${price:.2f}\nColors and Stock:\n{colors}", self)
+            details_label = QLabel(f"Model: {model}\nPrice: ${price:.2f}\nFee: ${fee:.2f}\nColors and Stock:\n{colors}", self)
             self.model_details_layout.addWidget(details_label)
+
 
     def refund_product(self, index):
         try:
@@ -462,6 +464,10 @@ class InventoryApp(QMainWindow):
             model_price_entry.setPlaceholderText("Price")
             model_layout.addWidget(model_price_entry)
 
+            model_fee_entry = QLineEdit(self.add_window)
+            model_fee_entry.setPlaceholderText("Fee (optional)")
+            model_layout.addWidget(model_fee_entry)
+
             colors_layout = QVBoxLayout()
             add_color_button = QPushButton("Add Color and Stock", self.add_window)
             add_color_button.setObjectName("addColorButton")
@@ -470,7 +476,7 @@ class InventoryApp(QMainWindow):
             model_layout.addWidget(add_color_button)
 
             parent_layout.addLayout(model_layout)
-            model_fields_list.append((model_name_entry, model_price_entry, colors_layout))
+            model_fields_list.append((model_name_entry, model_price_entry, model_fee_entry, colors_layout))
         except Exception as e:
             print(f"Error adding model fields: {e}")
 
@@ -501,12 +507,14 @@ class InventoryApp(QMainWindow):
 
             valid = True
 
-            for model_name_entry, model_price_entry, colors_layout in self.model_fields:
+            for model_name_entry, model_price_entry, model_fee_entry, colors_layout in self.model_fields:
                 model_name = model_name_entry.text()
                 model_price = model_price_entry.text()
+                model_fee = model_fee_entry.text()
 
                 if model_name and model_price.replace('.', '', 1).isdigit():
                     model_price = float(model_price)
+                    model_fee = float(model_fee) if model_fee else 0.0
                     colors = {}
 
                     for i in range(colors_layout.count()):
@@ -531,7 +539,7 @@ class InventoryApp(QMainWindow):
                     if not colors:
                         valid = False
 
-                    data[model_name] = {"Price": model_price, "Colors": colors}
+                    data[model_name] = {"Price": model_price, "Fee": model_fee, "Colors": colors}
                 else:
                     valid = False
                     break
@@ -548,13 +556,6 @@ class InventoryApp(QMainWindow):
         except Exception as e:
             print(f"Error adding item: {e}")
 
-    def select_image(self):
-        try:
-            file_path, _ = QFileDialog.getOpenFileName(self, "Select Image", "", "Image Files (*.png *.jpg *.jpeg)")
-            if file_path:
-                self.image_path_entry.setText(file_path)
-        except Exception as e:
-            print(f"Error selecting image: {e}")
 
     def add_to_count(self, index):
         try:
@@ -718,6 +719,10 @@ class InventoryApp(QMainWindow):
             model_price_entry.setPlaceholderText("Price")
             model_layout.addWidget(model_price_entry)
 
+            model_fee_entry = QLineEdit(self.edit_window)
+            model_fee_entry.setPlaceholderText("Fee (optional)")
+            model_layout.addWidget(model_fee_entry)
+
             colors_layout = QVBoxLayout()
             add_color_button = QPushButton("Add Color and Stock", self.edit_window)
             add_color_button.setObjectName("addColorButton")
@@ -726,7 +731,7 @@ class InventoryApp(QMainWindow):
             model_layout.addWidget(add_color_button)
 
             parent_layout.addLayout(model_layout)
-            model_fields_list.append((model_name_entry, model_price_entry, colors_layout))
+            model_fields_list.append((model_name_entry, model_price_entry, model_fee_entry, colors_layout))
         except Exception as e:
             print(f"Error adding model fields: {e}")
 
@@ -758,12 +763,14 @@ class InventoryApp(QMainWindow):
 
             valid = True
 
-            for model_name_entry, model_price_entry, colors_layout in self.edit_model_fields:
+            for model_name_entry, model_price_entry, model_fee_entry, colors_layout in self.edit_model_fields:
                 model_name = model_name_entry.text()
                 model_price = model_price_entry.text()
+                model_fee = model_fee_entry.text()
 
                 if model_name and model_price.replace('.', '', 1).isdigit():
                     model_price = float(model_price)
+                    model_fee = float(model_fee) if model_fee else 0.0
                     colors = {}
 
                     for i in range(colors_layout.count()):
@@ -788,7 +795,7 @@ class InventoryApp(QMainWindow):
                     if not colors:
                         valid = False
 
-                    data[model_name] = {"Price": model_price, "Colors": colors}
+                    data[model_name] = {"Price": model_price, "Fee": model_fee, "Colors": colors}
                 else:
                     valid = False
                     break
@@ -825,14 +832,10 @@ class InventoryApp(QMainWindow):
 
             layout = QVBoxLayout()
 
-            layout.addWidget(QLabel("Discount:", self))
-            self.discount_var = QComboBox(self.order_window)
-            self.discount_var.addItems(["None", "Percentage", "Currency"])
-            layout.addWidget(self.discount_var)
-
-            self.discount_value_entry = QLineEdit(self.order_window)
-            self.discount_value_entry.setPlaceholderText("Discount Value")
-            layout.addWidget(self.discount_value_entry)
+            layout.addWidget(QLabel("Shipping Fee (optional):", self))
+            self.shipping_fee_entry = QLineEdit(self.order_window)
+            self.shipping_fee_entry.setPlaceholderText("Shipping Fee")
+            layout.addWidget(self.shipping_fee_entry)
 
             self.order_quantity_entry = QLineEdit(self.order_window)
             self.order_quantity_entry.setPlaceholderText("Quantity to Order")
@@ -870,31 +873,22 @@ class InventoryApp(QMainWindow):
     def generate_receipt(self, index):
         try:
             product = self.inventory_df.iloc[index]
-            discount_type = self.discount_var.currentText()
-            discount_value = self.discount_value_entry.text()
+            shipping_fee = self.shipping_fee_entry.text()
             order_quantity = self.order_quantity_entry.text()
             order_name = self.order_name_entry.text() or "No Name"
             selected_model = self.order_model_combobox.currentText()
             selected_color = self.order_colors_combobox.currentText()
             order_date = datetime.datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
 
-            if order_quantity.isdigit() and (discount_value.replace('.', '', 1).isdigit() or discount_value == ""):
+            if order_quantity.isdigit() and (shipping_fee.replace('.', '', 1).isdigit() or shipping_fee == ""):
                 order_quantity = int(order_quantity)
                 unit_price = product['Data'][selected_model]['Price']
-                total_price = unit_price * order_quantity
+                model_fee = product['Data'][selected_model].get('Fee', 0)
+                total_price = (unit_price + model_fee) * order_quantity
 
-                if discount_type == "Percentage" and discount_value:
-                    discount_value = float(discount_value)
-                    if discount_value < 0 or discount_value > 100:
-                        QMessageBox.warning(self, "Error", "Percentage discount must be between 0 and 100.")
-                        return
-                    total_price *= (1 - discount_value / 100)
-                elif discount_type == "Currency" and discount_value:
-                    discount_value = float(discount_value)
-                    if discount_value < 0 or discount_value >= total_price:
-                        QMessageBox.warning(self, "Error", "Currency discount must be less than the total price.")
-                        return
-                    total_price -= discount_value
+                if shipping_fee:
+                    shipping_fee = float(shipping_fee)
+                    total_price += shipping_fee
 
                 if product['Data'][selected_model]['Colors'][selected_color] >= order_quantity:
                     self.inventory_df.at[index, 'Data'][selected_model]['Colors'][selected_color] -= order_quantity
@@ -1111,6 +1105,14 @@ class InventoryApp(QMainWindow):
             workbook.save(performance_file)
         except Exception as e:
             print(f"Error formatting performance sheet: {e}")
+
+    def select_image(self):
+        try:
+            file_path, _ = QFileDialog.getOpenFileName(self, "Select Image", "", "Image Files (*.png *.jpg *.jpeg)")
+            if file_path:
+                self.image_path_entry.setText(file_path)
+        except Exception as e:
+            print(f"Error selecting image: {e}")
 
 if __name__ == "__main__":
     try:
