@@ -697,8 +697,6 @@ class InventoryApp(QMainWindow):
         except Exception as e:
             print(f"Error adding to count: {e}")
 
-
-
     def confirm_add_stock(self, index):
         try:
             product = self.inventory_df.iloc[index]
@@ -1071,15 +1069,11 @@ class InventoryApp(QMainWindow):
             filtered_df = self.inventory_df.copy()
 
             query = self.search_bar.text().lower()
-            phone_model_query = self.search_phone_model_bar.text().lower()
             selected_phone_model = self.phone_model_dropdown.currentText()
             category = self.category_filter.currentText()
 
             if query and query != "search by name":
                 filtered_df = filtered_df[filtered_df['Item Name'].str.lower().str.contains(query)]
-
-            if phone_model_query and phone_model_query != "search by phone model":
-                filtered_df = filtered_df[filtered_df['Data'].apply(lambda x: any(phone_model_query in model.lower() for model in x.keys()))]
 
             if selected_phone_model and selected_phone_model != "(NONE)":
                 filtered_df = filtered_df[filtered_df['Data'].apply(lambda x: selected_phone_model in x.keys())]
@@ -1152,7 +1146,7 @@ class InventoryApp(QMainWindow):
             all_details_text = ""
 
             for index, product in self.inventory_df.iterrows():
-                all_details_text += f"<b>Product:</b> {product['Item Name']}<br>"
+                all_details_text += f"<u><b><span style='color:blue;'>Product: {product['Item Name']}</span></b></u><br>"
                 all_details_text += f"<b>Category:</b> {product['Category']}<br>"
                 for model, model_data in product['Data'].items():
                     all_details_text += f"<b>Model:</b> {model}<br>"
