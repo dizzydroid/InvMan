@@ -67,7 +67,6 @@ class InventoryApp(QMainWindow):
                 text-transform: uppercase;
                 font-family: Helvetica;
                 letter-spacing: 0.8rem;
-                cursor: hand;
             }
             QPushButton#addButton {
                 background-color: #26425a;
@@ -673,7 +672,7 @@ class InventoryApp(QMainWindow):
             confirm_button.setObjectName("confirmButton")
             confirm_button.setStyleSheet("""
                 QPushButton#confirmButton {
-                    background-color: #4CAF50;
+                    background-color: #26425a;
                     color: white;
                     font-weight: bold;
                     text-transform: uppercase;
@@ -803,9 +802,6 @@ class InventoryApp(QMainWindow):
             self.edit_window.exec_()
         except Exception as e:
             print(f"Error editing product info: {e}")
-
-
-
 
 
     def add_edit_model_fields(self, parent_layout, model_fields_list):
@@ -1333,8 +1329,8 @@ class InventoryApp(QMainWindow):
             print("New Refunds:")
             print(new_refunds)
 
-            total_revenue = new_orders['Total Price'].sum()
-            total_refunds = new_refunds['Total Price'].sum()
+            total_revenue = new_orders['Net Profit'].sum()
+            total_refunds = new_refunds['Net Profit'].sum()
             net_profit = total_revenue + total_refunds  # Refunds are stored as negative values
 
             performance_entry = pd.DataFrame([{
