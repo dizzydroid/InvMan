@@ -68,7 +68,7 @@ class InventoryApp(QMainWindow):
                 letter-spacing: 0.8rem;
             }
             QPushButton#addButton {
-                background-color: #246625;
+                background-color: #26425a;
                 color: white;
                 font-weight: bold;
                 text-transform: uppercase;
@@ -108,13 +108,29 @@ class InventoryApp(QMainWindow):
                 color: white;
             }
             QPushButton#trackPerformanceButton {
-                background-color: #6A5ACD;
+                background-color: #0c1e32;
                 color: white;
+                font-weight: bold;
+                text-transform: uppercase;
+                font-family: Helvetica;
+                letter-spacing: 0.8rem;
             }
             QPushButton#viewAllDetailsButton {
-            background-color: #4CAF50;
+            background-color: #072e33;
             color: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-family: Helvetica;
+            letter-spacing: 0.8rem;
             }
+            QPushButton#bestWorstButton {
+            background-color: #54192d;
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-family: Helvetica;
+            letter-spacing: 0.8rem;
+        }
         """)
 
         layout = QVBoxLayout()
@@ -166,7 +182,7 @@ class InventoryApp(QMainWindow):
         button_layout.addWidget(view_all_details_button)
 
         best_worst_sellers_button = QPushButton("Best/Worst Sellers", self)
-        best_worst_sellers_button.setObjectName("bestWorstSellersButton")
+        best_worst_sellers_button.setObjectName("bestWorstButton")
         best_worst_sellers_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         best_worst_sellers_button.clicked.connect(self.view_best_worst_sellers)
         button_layout.addWidget(best_worst_sellers_button)
@@ -345,15 +361,29 @@ class InventoryApp(QMainWindow):
             model_data = product['Data'][model]
             price = model_data.get("Price", 0)
             fee = model_data.get("Fee", 0)
-            units_sold = model_data.get("Units Sold", 0)
+            total_units_sold = model_data.get("Units Sold", 0)
             colors = "\n".join([f"{color}: {stock}" for color, stock in model_data.get("Colors", {}).items()])
-            details_label = QLabel(f"Model: {model}<br>"
-                                f"Price: <span style='color:red;'>${price:.2f}</span><br>"
-                                f"Fee: <span style='color:orange;'>${fee:.2f}</span><br>"
-                                f"Units Sold: <span style='color:purple;'>{units_sold}</span><br>"
-                                f"Colors and Stock:<br>{colors}", self)
+
+            details_text = (f"Model: {model}<br>"
+                            f"Price: <span style='color:red;'>${price:.2f}</span><br>"
+                            f"Fee: <span style='color:orange;'>${fee:.2f}</span><br>"
+                            f"Total Units Sold: <span style='color:purple;'>{total_units_sold}</span><br>"
+                            f"Colors and Stock:<br>{colors}")
+
+            details_label = QLabel(details_text, self)
             details_label.setTextFormat(Qt.RichText)
             self.model_details_layout.addWidget(details_label)
+
+            # Dropdown for 'units sold' for each color
+            units_sold_combobox = QComboBox(self)
+            units_sold_combobox.addItem("Select color to view units sold")
+            for color, stock in model_data.get("Colors", {}).items():
+                units_sold = model_data.get("Units Sold Colors", {}).get(color, 0)
+                units_sold_combobox.addItem(f"{color}: {units_sold} units sold")
+            
+            self.model_details_layout.addWidget(units_sold_combobox)
+
+
 
 
     def refund_product(self, index):
@@ -419,26 +449,25 @@ class InventoryApp(QMainWindow):
                     total_price = refund_shipping_fee
                     net_profit = (unit_price - model_fee) * refund_quantity
 
-                    if product['Data'][selected_model]['Colors'][selected_color] >= refund_quantity:
-                        product['Data'][selected_model]['Colors'][selected_color] += refund_quantity
-                        self.save_inventory()
+                    # Update stock without checking if it is sufficient
+                    product['Data'][selected_model]['Colors'][selected_color] += refund_quantity
+                    self.save_inventory()
 
-                        # Update the order sheet to mark it as refunded
-                        order_name = f"Refund-{product['Item Name']}-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
-                        new_order = pd.DataFrame([[order_name, product['Item Name'], selected_model, selected_color, -refund_quantity, datetime.datetime.now().strftime('%Y-%m-%d %I:%M:%S %p'), unit_price, model_fee, refund_shipping_fee, total_price, -net_profit, 'REFUNDED']], columns=['Order Name', 'Product Name', 'Model', 'Color', 'Quantity', 'Date', 'Unit Price', 'Model Fee', 'Shipping Fee', 'Total Price', 'Net Profit', 'Status'])
-                        self.orders_df = pd.concat([self.orders_df, new_order], ignore_index=True)
-                        self.save_orders()
+                    # Update the order sheet to mark it as refunded
+                    order_name = f"Refund-{product['Item Name']}-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                    new_order = pd.DataFrame([[order_name, product['Item Name'], selected_model, selected_color, -refund_quantity, datetime.datetime.now().strftime('%Y-%m-%d %I:%M:%S %p'), unit_price, model_fee, refund_shipping_fee, total_price, -net_profit, 'REFUNDED']], columns=['Order Name', 'Product Name', 'Model', 'Color', 'Quantity', 'Date', 'Unit Price', 'Model Fee', 'Shipping Fee', 'Total Price', 'Net Profit', 'Status'])
+                    self.orders_df = pd.concat([self.orders_df, new_order], ignore_index=True)
+                    self.save_orders()
 
-                        QMessageBox.information(self, "Success", "Refund processed successfully.")
-                        self.refund_window.close()
-                    else:
-                        QMessageBox.warning(self, "Error", "Insufficient stock for the refund.")
+                    QMessageBox.information(self, "Success", "Refund processed successfully.")
+                    self.refund_window.close()
                 else:
                     QMessageBox.warning(self, "Error", "Please enter a valid refund shipping fee.")
             else:
                 QMessageBox.warning(self, "Error", "Please enter a valid refund quantity.")
         except Exception as e:
             print(f"Error processing refund: {e}")
+
 
 
     def update_refund_colors(self, product):
@@ -612,34 +641,50 @@ class InventoryApp(QMainWindow):
 
             layout = QVBoxLayout()
 
+            stock_layout = QGridLayout()
+
             self.add_stock_entries = {}
 
+            row = 0
             for model, model_data in product['Data'].items():
                 model_label = QLabel(f"Model: {model}", self.add_stock_window)
-                layout.addWidget(model_label)
+                stock_layout.addWidget(model_label, row, 0, 1, 2)
+                row += 1
 
                 for color in model_data['Colors']:
-                    color_layout = QHBoxLayout()
-
                     color_label = QLabel(color, self.add_stock_window)
-                    color_layout.addWidget(color_label)
-
                     stock_entry = QLineEdit(self.add_stock_window)
                     stock_entry.setPlaceholderText("Add Stock")
-                    color_layout.addWidget(stock_entry)
-
                     self.add_stock_entries[(model, color)] = stock_entry
 
-                    layout.addLayout(color_layout)
+                    stock_layout.addWidget(color_label, row, 0)
+                    stock_layout.addWidget(stock_entry, row, 1)
+                    row += 1
+
+            layout.addLayout(stock_layout)
 
             confirm_button = QPushButton("Confirm", self.add_stock_window)
+            confirm_button.setObjectName("confirmButton")
+            confirm_button.setStyleSheet("""
+                QPushButton#confirmButton {
+                    background-color: #4CAF50;
+                    color: white;
+                    font-weight: bold;
+                    text-transform: uppercase;
+                    font-family: Helvetica;
+                    letter-spacing: 0.8rem;
+                    padding: 10px;
+                }
+            """)
             confirm_button.clicked.connect(lambda: self.confirm_add_stock(index))
-            layout.addWidget(confirm_button)
+            layout.addWidget(confirm_button, alignment=Qt.AlignCenter)
 
             self.add_stock_window.setLayout(layout)
             self.add_stock_window.exec_()
         except Exception as e:
             print(f"Error adding to count: {e}")
+
+
 
     def confirm_add_stock(self, index):
         try:
@@ -691,7 +736,7 @@ class InventoryApp(QMainWindow):
 
             self.edit_data_layout = QVBoxLayout()
             self.edit_model_fields = []
-   
+
             for model, model_data in product['Data'].items():
                 model_layout = QVBoxLayout()
 
@@ -703,12 +748,11 @@ class InventoryApp(QMainWindow):
                 model_price_entry.setText(str(model_data['Price']))
                 model_layout.addWidget(model_price_entry)
 
-
                 model_fee_entry = QLineEdit(self.edit_window)
                 model_fee_entry.setText(str(model_data.get('Fee', 0)))
                 model_layout.addWidget(model_fee_entry)
-                colors_layout = QVBoxLayout()
 
+                colors_layout = QVBoxLayout()
                 for color, stock in model_data['Colors'].items():
                     color_stock_layout = QHBoxLayout()
 
@@ -729,7 +773,7 @@ class InventoryApp(QMainWindow):
                 add_color_button.setObjectName("addColorButton")
 
                 self.edit_data_layout.addLayout(model_layout)
-                self.edit_model_fields.append((model_name_entry, model_price_entry, colors_layout))
+                self.edit_model_fields.append((model_name_entry, model_price_entry, model_fee_entry, colors_layout))
 
             models_container = QWidget()
             models_container.setLayout(self.edit_data_layout)
@@ -753,6 +797,7 @@ class InventoryApp(QMainWindow):
             self.edit_window.exec_()
         except Exception as e:
             print(f"Error editing product info: {e}")
+
 
 
 
@@ -802,7 +847,6 @@ class InventoryApp(QMainWindow):
         except Exception as e:
             print(f"Error adding color and stock fields: {e}")
         
-
 
     def save_product_info(self, index):
         try:
@@ -863,6 +907,7 @@ class InventoryApp(QMainWindow):
                 QMessageBox.warning(self, "Error", "Please enter valid item details and ensure at least one model with colors and stock.")
         except Exception as e:
             print(f"Error saving product info: {e}")
+
 
 
     def select_edit_image(self):
@@ -945,17 +990,31 @@ class InventoryApp(QMainWindow):
                 unit_price = product['Data'][selected_model]['Price']
                 model_fee = product['Data'][selected_model].get('Fee', 0)
                 total_price_without_shipping = unit_price * order_quantity
-                total_price = total_price_without_shipping
+
                 if shipping_fee:
                     shipping_fee = float(shipping_fee)
-                    total_price += shipping_fee
+                else:
+                    shipping_fee = 0.0
 
+                total_price = total_price_without_shipping + shipping_fee
                 net_profit = (unit_price - model_fee) * order_quantity
 
                 if product['Data'][selected_model]['Colors'][selected_color] >= order_quantity:
                     self.inventory_df.at[index, 'Data'][selected_model]['Colors'][selected_color] -= order_quantity
-                    # Update units sold
-                    self.inventory_df.at[index, 'Data'][selected_model]['Units Sold'] = self.inventory_df.at[index, 'Data'][selected_model].get('Units Sold', 0) + order_quantity
+
+                    # Update 'Units Sold' for the model and color
+                    if 'Units Sold' in self.inventory_df.at[index, 'Data'][selected_model]:
+                        self.inventory_df.at[index, 'Data'][selected_model]['Units Sold'] += order_quantity
+                    else:
+                        self.inventory_df.at[index, 'Data'][selected_model]['Units Sold'] = order_quantity
+
+                    if 'Units Sold Colors' not in self.inventory_df.at[index, 'Data'][selected_model]:
+                        self.inventory_df.at[index, 'Data'][selected_model]['Units Sold Colors'] = {}
+
+                    if selected_color in self.inventory_df.at[index, 'Data'][selected_model]['Units Sold Colors']:
+                        self.inventory_df.at[index, 'Data'][selected_model]['Units Sold Colors'][selected_color] += order_quantity
+                    else:
+                        self.inventory_df.at[index, 'Data'][selected_model]['Units Sold Colors'][selected_color] = order_quantity
 
                     self.save_inventory()
 
@@ -972,6 +1031,8 @@ class InventoryApp(QMainWindow):
                 QMessageBox.warning(self, "Error", "Please enter valid order details.")
         except Exception as e:
             print(f"Error in generate_receipt: {e}")
+
+
 
     def remove_product(self, index):
         try:
@@ -1103,27 +1164,29 @@ class InventoryApp(QMainWindow):
             scroll_content = QWidget()
             scroll_layout = QVBoxLayout(scroll_content)
 
-            all_models = []
+            all_sales = []
             for index, row in self.inventory_df.iterrows():
                 product_name = row['Item Name']
                 for model, model_data in row['Data'].items():
-                    all_models.append({
-                        'Product Name': product_name,
-                        'Model': model,
-                        'Units Sold': model_data.get('Units Sold', 0)
-                    })
+                    for color, units_sold in model_data.get('Units Sold Colors', {}).items():
+                        all_sales.append({
+                            'Product Name': product_name,
+                            'Model': model,
+                            'Color': color,
+                            'Units Sold': units_sold
+                        })
 
-            models_df = pd.DataFrame(all_models)
-            best_sellers = models_df.nlargest(3, 'Units Sold')
-            worst_sellers = models_df.nsmallest(3, 'Units Sold')
+            sales_df = pd.DataFrame(all_sales)
+            best_sellers = sales_df.nlargest(3, 'Units Sold')
+            worst_sellers = sales_df.nsmallest(3, 'Units Sold')
 
             best_sellers_text = "<b>Best Sellers:</b><br>"
             for index, row in best_sellers.iterrows():
-                best_sellers_text += f"Product: {row['Product Name']}<br>Model: {row['Model']}<br>Units Sold: {row['Units Sold']}<br><br>"
+                best_sellers_text += f"{row['Product Name']} - {row['Model']} ({row['Color']})<br>Units Sold: {row['Units Sold']}<br><br>"
 
             worst_sellers_text = "<b>Worst Sellers:</b><br>"
             for index, row in worst_sellers.iterrows():
-                worst_sellers_text += f"Product: {row['Product Name']}<br>Model: {row['Model']}<br>Units Sold: {row['Units Sold']}<br><br>"
+                worst_sellers_text += f"{row['Product Name']} - {row['Model']} ({row['Color']})<br>Units Sold: {row['Units Sold']}<br><br>"
 
             details_label = QLabel(best_sellers_text + "<br>" + worst_sellers_text)
             details_label.setTextFormat(Qt.RichText)
@@ -1137,6 +1200,56 @@ class InventoryApp(QMainWindow):
         except Exception as e:
             print(f"Error viewing best/worst sellers: {e}")
 
+
+
+    def view_best_worst_colors(self):
+        try:
+            best_worst_window = QDialog(self)
+            best_worst_window.setWindowTitle("Best and Worst Sellers by Color")
+            best_worst_window.setGeometry(300, 300, 800, 600)
+
+            layout = QVBoxLayout()
+
+            scroll_area = QScrollArea(best_worst_window)
+            scroll_area.setWidgetResizable(True)
+            scroll_content = QWidget()
+            scroll_layout = QVBoxLayout(scroll_content)
+
+            all_colors = []
+            for index, row in self.inventory_df.iterrows():
+                product_name = row['Item Name']
+                for model, model_data in row['Data'].items():
+                    for color, units_sold in model_data.get('Units Sold Colors', {}).items():
+                        all_colors.append({
+                            'Product Name': product_name,
+                            'Model': model,
+                            'Color': color,
+                            'Units Sold': units_sold
+                        })
+
+            colors_df = pd.DataFrame(all_colors)
+            best_sellers = colors_df.nlargest(3, 'Units Sold')
+            worst_sellers = colors_df.nsmallest(3, 'Units Sold')
+
+            best_sellers_text = "<b>Best Sellers by Color:</b><br>"
+            for index, row in best_sellers.iterrows():
+                best_sellers_text += f"Product: {row['Product Name']}<br>Model: {row['Model']}<br>Color: {row['Color']}<br>Units Sold: {row['Units Sold']}<br><br>"
+
+            worst_sellers_text = "<b>Worst Sellers by Color:</b><br>"
+            for index, row in worst_sellers.iterrows():
+                worst_sellers_text += f"Product: {row['Product Name']}<br>Model: {row['Model']}<br>Color: {row['Color']}<br>Units Sold: {row['Units Sold']}<br><br>"
+
+            details_label = QLabel(best_sellers_text + "<br>" + worst_sellers_text)
+            details_label.setTextFormat(Qt.RichText)
+            scroll_layout.addWidget(details_label)
+
+            scroll_area.setWidget(scroll_content)
+            layout.addWidget(scroll_area)
+
+            best_worst_window.setLayout(layout)
+            best_worst_window.exec_()
+        except Exception as e:
+            print(f"Error viewing best/worst sellers by color: {e}")
 
 
     def format_orders_sheet(self):
@@ -1220,9 +1333,6 @@ class InventoryApp(QMainWindow):
             self.performance_window.close()
         except Exception as e:
             print(f"Error tracking performance: {e}")
-
-
-
 
     def save_performance(self, performance_entry):
         try:
