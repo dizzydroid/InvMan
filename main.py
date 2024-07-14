@@ -1164,6 +1164,10 @@ class InventoryApp(QMainWindow):
 
     def view_best_worst_sellers(self):
         try:
+            if not hasattr(self, 'orders_df') or self.orders_df.empty:
+                QMessageBox.warning(self, "No Sales", "There are no sales records to determine best and worst sellers.")
+                return
+
             best_worst_window = QDialog(self)
             best_worst_window.setWindowTitle("Best and Worst Sellers")
             best_worst_window.setGeometry(300, 300, 800, 600)
@@ -1188,6 +1192,10 @@ class InventoryApp(QMainWindow):
                         })
 
             sales_df = pd.DataFrame(all_sales)
+            if sales_df.empty:
+                QMessageBox.warning(self, "No Sales", "There are no sales records to determine best and worst sellers.")
+                return
+
             best_sellers = sales_df.nlargest(3, 'Units Sold')
             worst_sellers = sales_df.nsmallest(3, 'Units Sold')
 
@@ -1210,8 +1218,6 @@ class InventoryApp(QMainWindow):
             best_worst_window.exec_()
         except Exception as e:
             print(f"Error viewing best/worst sellers: {e}")
-
-
 
     def view_best_worst_colors(self):
         try:
