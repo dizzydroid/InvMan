@@ -142,11 +142,17 @@ class InventoryApp(QMainWindow):
         self.search_bar.textChanged.connect(self.apply_filters)
         layout.addWidget(self.search_bar)
 
-        self.search_phone_model_bar = QLineEdit(self)
-        self.search_phone_model_bar.setPlaceholderText("Search by phone model")
-        self.search_phone_model_bar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.search_phone_model_bar.textChanged.connect(self.apply_filters)
-        layout.addWidget(self.search_phone_model_bar)
+        # self.search_phone_model_bar = QLineEdit(self)
+        # self.search_phone_model_bar.setPlaceholderText("Search by phone model")
+        # self.search_phone_model_bar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        # self.search_phone_model_bar.textChanged.connect(self.apply_filters)
+        # layout.addWidget(self.search_phone_model_bar)
+
+        self.phone_model_dropdown = QComboBox(self)
+        self.phone_model_dropdown.setPlaceholderText("Select phone model")
+        self.phone_model_dropdown.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.phone_model_dropdown.currentIndexChanged.connect(self.apply_filters)
+        layout.addWidget(self.phone_model_dropdown)
 
         self.category_filter = QComboBox(self)
         self.category_filter.addItem("(NONE)")
@@ -208,9 +214,11 @@ class InventoryApp(QMainWindow):
             else:
                 self.inventory_df = pd.DataFrame(columns=['Item Name', 'Category', 'Data', 'Image Path'])
             self.load_orders()
+            self.populate_phone_model_dropdown()
             self.update_inventory_view()
         except Exception as e:
             print(f"Error loading inventory: {e}")
+
 
     def save_inventory(self):
         try:
@@ -1039,8 +1047,6 @@ class InventoryApp(QMainWindow):
         except Exception as e:
             print(f"Error in generate_receipt: {e}")
 
-
-
     def remove_product(self, index):
         try:
             confirm = QMessageBox.question(self, "Confirm Delete", "Are you sure you want to remove this product?", QMessageBox.Yes | QMessageBox.No)
@@ -1052,12 +1058,21 @@ class InventoryApp(QMainWindow):
         except Exception as e:
             print(f"Error removing product: {e}")
 
+    def populate_phone_model_dropdown(self):
+        phone_models = set()
+        for index, row in self.inventory_df.iterrows():
+            for model in row['Data'].keys():
+                phone_models.add(model)
+        self.phone_model_dropdown.addItem("(NONE)")
+        self.phone_model_dropdown.addItems(sorted(phone_models))
+
     def apply_filters(self):
         try:
             filtered_df = self.inventory_df.copy()
 
             query = self.search_bar.text().lower()
             phone_model_query = self.search_phone_model_bar.text().lower()
+            selected_phone_model = self.phone_model_dropdown.currentText()
             category = self.category_filter.currentText()
 
             if query and query != "search by name":
@@ -1066,12 +1081,16 @@ class InventoryApp(QMainWindow):
             if phone_model_query and phone_model_query != "search by phone model":
                 filtered_df = filtered_df[filtered_df['Data'].apply(lambda x: any(phone_model_query in model.lower() for model in x.keys()))]
 
+            if selected_phone_model and selected_phone_model != "(NONE)":
+                filtered_df = filtered_df[filtered_df['Data'].apply(lambda x: selected_phone_model in x.keys())]
+
             if category and category != "(NONE)":
                 filtered_df = filtered_df[filtered_df['Category'] == category]
 
             self.display_filtered_inventory(filtered_df)
         except Exception as e:
             print(f"Error applying filters: {e}")
+
 
     def display_filtered_inventory(self, df):
         try:
