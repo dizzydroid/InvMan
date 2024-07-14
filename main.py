@@ -10,6 +10,7 @@ from PyQt5.QtCore import Qt, QDate
 import pandas as pd
 import openpyxl
 from openpyxl.styles import PatternFill
+import shutil
 
 class InventoryApp(QMainWindow):
     def __init__(self):
@@ -66,6 +67,7 @@ class InventoryApp(QMainWindow):
                 text-transform: uppercase;
                 font-family: Helvetica;
                 letter-spacing: 0.8rem;
+                cursor: hand;
             }
             QPushButton#addButton {
                 background-color: #26425a;
@@ -84,19 +86,19 @@ class InventoryApp(QMainWindow):
                 color: White
             }
             QPushButton#orderButton {
-                background-color: #2196F3;
+                background-color: #3c7a58;
                 color: white;
             }
             QPushButton#editButton {
-                background-color: #FFC107;
+                background-color: #3c4c7a;
                 color: white;
             }
             QPushButton#removeButton {
-                background-color: #f44336;
+                background-color: #8B0000;
                 color: white;
             }
             QPushButton#refundButton {
-                background-color: #8B0000;
+                background-color: #ad0328;
                 color: white;
             }
             QPushButton#addColorButton {
@@ -104,11 +106,11 @@ class InventoryApp(QMainWindow):
                 color: White; 
             }
             QPushButton#viewDetailsButton {
-                background-color: #808080;
+                background-color: #3c7a6c;
                 color: white;
             }
             QPushButton#trackPerformanceButton {
-                background-color: #0c1e32;
+                background-color: #7d2201;
                 color: white;
                 font-weight: bold;
                 text-transform: uppercase;
@@ -124,7 +126,7 @@ class InventoryApp(QMainWindow):
             letter-spacing: 0.8rem;
             }
             QPushButton#bestWorstButton {
-            background-color: #54192d;
+            background-color: #7d0101;
             color: white;
             font-weight: bold;
             text-transform: uppercase;
@@ -168,18 +170,18 @@ class InventoryApp(QMainWindow):
         add_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         add_button.clicked.connect(self.open_add_item_window)
         button_layout.addWidget(add_button)
+        
+        view_all_details_button = QPushButton("View All Details", self)
+        view_all_details_button.setObjectName("viewAllDetailsButton")
+        view_all_details_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        view_all_details_button.clicked.connect(self.view_all_details)
+        button_layout.addWidget(view_all_details_button)
 
         track_performance_button = QPushButton("Track Performance", self)
         track_performance_button.setObjectName("trackPerformanceButton")
         track_performance_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         track_performance_button.clicked.connect(self.open_performance_window)
         button_layout.addWidget(track_performance_button)
-
-        view_all_details_button = QPushButton("View All Details", self)
-        view_all_details_button.setObjectName("viewAllDetailsButton")
-        view_all_details_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        view_all_details_button.clicked.connect(self.view_all_details)
-        button_layout.addWidget(view_all_details_button)
 
         best_worst_sellers_button = QPushButton("Best/Worst Sellers", self)
         best_worst_sellers_button.setObjectName("bestWorstButton")
@@ -195,6 +197,9 @@ class InventoryApp(QMainWindow):
 
         self.showMaximized()
 
+    def ensure_images_directory(self):
+        if not os.path.exists("images"):
+            os.makedirs("images")
 
     def load_inventory(self):
         try:
@@ -297,16 +302,17 @@ class InventoryApp(QMainWindow):
             edit_button.setObjectName("editButton")
             edit_button.clicked.connect(lambda: self.edit_product_info(index))
             layout.addWidget(edit_button)
+            
+            view_details_button = QPushButton("View Details", self)
+            view_details_button.setObjectName("viewDetailsButton")
+            view_details_button.clicked.connect(lambda: self.view_details(index))
+            layout.addWidget(view_details_button)
 
             order_button = QPushButton("Order", self)
             order_button.setObjectName("orderButton")
             order_button.clicked.connect(lambda: self.order_product(index))
             layout.addWidget(order_button)
 
-            view_details_button = QPushButton("View Details", self)
-            view_details_button.setObjectName("viewDetailsButton")
-            view_details_button.clicked.connect(lambda: self.view_details(index))
-            layout.addWidget(view_details_button)
 
             refund_button = QPushButton("Refund", self)
             refund_button.setObjectName("refundButton")
@@ -914,9 +920,14 @@ class InventoryApp(QMainWindow):
         try:
             file_path, _ = QFileDialog.getOpenFileName(self, "Select Image", "", "Image Files (*.png *.jpg *.jpeg)")
             if file_path:
-                self.edit_image_path_entry.setText(file_path)
+                self.ensure_images_directory()  # Ensure the images directory exists
+                image_filename = os.path.basename(file_path)
+                target_path = os.path.join("images", image_filename)
+                shutil.copy(file_path, target_path)  # Copy the image to the images folder
+                self.edit_image_path_entry.setText(target_path)  # Set the relative path
         except Exception as e:
             print(f"Error selecting edit image: {e}")
+
 
     def order_product(self, index):
         try:
@@ -1374,9 +1385,14 @@ class InventoryApp(QMainWindow):
         try:
             file_path, _ = QFileDialog.getOpenFileName(self, "Select Image", "", "Image Files (*.png *.jpg *.jpeg)")
             if file_path:
-                self.image_path_entry.setText(file_path)
+                self.ensure_images_directory()  # Ensure the images directory exists
+                image_filename = os.path.basename(file_path)
+                target_path = os.path.join("images", image_filename)
+                shutil.copy(file_path, target_path)  # Copy the image to the images folder
+                self.image_path_entry.setText(target_path)  # Set the relative path
         except Exception as e:
             print(f"Error selecting image: {e}")
+
 
 if __name__ == "__main__":
     try:
