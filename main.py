@@ -149,8 +149,9 @@ class InventoryApp(QMainWindow):
         # layout.addWidget(self.search_phone_model_bar)
 
         self.phone_model_dropdown = QComboBox(self)
-        self.phone_model_dropdown.setPlaceholderText("Select phone model")
         self.phone_model_dropdown.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.phone_model_dropdown.addItem("Select phone model")
+        self.phone_model_dropdown.setCurrentIndex(0)
         self.phone_model_dropdown.currentIndexChanged.connect(self.apply_filters)
         layout.addWidget(self.phone_model_dropdown)
 
@@ -396,9 +397,6 @@ class InventoryApp(QMainWindow):
             
             self.model_details_layout.addWidget(units_sold_combobox)
 
-
-
-
     def refund_product(self, index):
         try:
             product = self.inventory_df.iloc[index]
@@ -481,15 +479,12 @@ class InventoryApp(QMainWindow):
         except Exception as e:
             print(f"Error processing refund: {e}")
 
-
-
     def update_refund_colors(self, product):
         model = self.refund_model_combobox.currentText()
         self.refund_colors_combobox.clear()
         if model in product['Data']:
             self.refund_colors_combobox.addItems(product['Data'][model]['Colors'].keys())
 
-    
     def open_add_item_window(self):
         try:
             self.add_window = QDialog(self)
@@ -539,10 +534,11 @@ class InventoryApp(QMainWindow):
         except Exception as e:
             print(f"Error opening add item window: {e}")
 
-
     def add_model_fields(self, parent_layout, model_fields_list):
         try:
             model_layout = QVBoxLayout()
+            model_widget = QWidget()
+            model_widget.setLayout(model_layout)
 
             model_name_entry = QLineEdit(self.add_window)
             model_name_entry.setPlaceholderText("Model Name")
@@ -563,12 +559,90 @@ class InventoryApp(QMainWindow):
             model_layout.addLayout(colors_layout)
             model_layout.addWidget(add_color_button)
 
-            parent_layout.addLayout(model_layout)
-            model_fields_list.append((model_name_entry, model_price_entry, model_fee_entry, colors_layout))
+            cancel_button = QPushButton("Cancel", self.add_window)
+            cancel_button.setObjectName("cancelButton")
+            cancel_button.clicked.connect(lambda: self.remove_model_fields(model_widget, model_fields_list, (model_name_entry, model_price_entry, model_fee_entry, colors_layout)))
+            cancel_button.setStyleSheet("""
+                QPushButton#cancelButton {
+                    background-color: #d9534f;
+                    color: white;
+                    font-weight: bold;
+                    text-transform: uppercase;
+                    font-family: Helvetica;
+                    letter-spacing: 0.8rem;
+                    padding: 10px;
+                }
+            """)
+            model_layout.addWidget(cancel_button)
+
+            parent_layout.addWidget(model_widget)
+            fields = (model_name_entry, model_price_entry, model_fee_entry, colors_layout)
+            model_fields_list.append(fields)
+            print(f"Fields added: {fields}")
         except Exception as e:
             print(f"Error adding model fields: {e}")
 
+    def add_edit_model_fields(self, parent_layout, model_fields_list):
+        try:
+            model_layout = QVBoxLayout()
+            model_widget = QWidget()
+            model_widget.setLayout(model_layout)
 
+            model_name_entry = QLineEdit(self.edit_window)
+            model_name_entry.setPlaceholderText("Model Name")
+            model_layout.addWidget(model_name_entry)
+
+            model_price_entry = QLineEdit(self.edit_window)
+            model_price_entry.setPlaceholderText("Price")
+            model_layout.addWidget(model_price_entry)
+
+            model_fee_entry = QLineEdit(self.edit_window)
+            model_fee_entry.setPlaceholderText("Fee (optional)")
+            model_layout.addWidget(model_fee_entry)
+
+            colors_layout = QVBoxLayout()
+            add_color_button = QPushButton("Add Color and Stock", self.edit_window)
+            add_color_button.setObjectName("addColorButton")
+            add_color_button.clicked.connect(lambda _, cl=colors_layout: self.add_edit_color_stock_fields(cl))
+            model_layout.addLayout(colors_layout)
+            model_layout.addWidget(add_color_button)
+
+            cancel_button = QPushButton("Cancel", self.edit_window)
+            cancel_button.setObjectName("cancelButton")
+            cancel_button.clicked.connect(lambda: self.remove_model_fields(model_widget, model_fields_list, (model_name_entry, model_price_entry, model_fee_entry, colors_layout)))
+            cancel_button.setStyleSheet("""
+                QPushButton#cancelButton {
+                    background-color: #d9534f;
+                    color: white;
+                    font-weight: bold;
+                    text-transform: uppercase;
+                    font-family: Helvetica;
+                    letter-spacing: 0.8rem;
+                    padding: 10px;
+                }
+            """)
+            model_layout.addWidget(cancel_button)
+
+            parent_layout.addWidget(model_widget)
+            fields = (model_name_entry, model_price_entry, model_fee_entry, colors_layout)
+            model_fields_list.append(fields)
+            print(f"Fields added: {fields}")
+        except Exception as e:
+            print(f"Error adding model fields: {e}")
+
+    def remove_model_fields(self, model_widget, model_fields_list, fields):
+        try:
+            print(f"Attempting to remove fields: {fields}")
+            print(f"Current model_fields_list: {model_fields_list}")
+
+            if fields in model_fields_list:
+                model_widget.setParent(None)  # This removes the widget from its parent layout
+                model_fields_list.remove(fields)
+                print(f"Fields removed successfully.")
+            else:
+                print(f"Fields not found in list: {fields}")
+        except Exception as e:
+            print(f"Error removing model fields: {e}")
 
     def add_color_stock_fields(self, colors_layout):
         try:
@@ -809,36 +883,6 @@ class InventoryApp(QMainWindow):
         except Exception as e:
             print(f"Error editing product info: {e}")
 
-
-    def add_edit_model_fields(self, parent_layout, model_fields_list):
-        try:
-            model_layout = QVBoxLayout()
-
-            model_name_entry = QLineEdit(self.edit_window)
-            model_name_entry.setPlaceholderText("Model Name")
-            model_layout.addWidget(model_name_entry)
-
-            model_price_entry = QLineEdit(self.edit_window)
-            model_price_entry.setPlaceholderText("Price")
-            model_layout.addWidget(model_price_entry)
-
-            model_fee_entry = QLineEdit(self.edit_window)
-            model_fee_entry.setPlaceholderText("Fee (optional)")
-            model_layout.addWidget(model_fee_entry)
-
-            colors_layout = QVBoxLayout()
-            add_color_button = QPushButton("Add Color and Stock", self.edit_window)
-            add_color_button.setObjectName("addColorButton")
-            add_color_button.clicked.connect(lambda _, cl=colors_layout: self.add_edit_color_stock_fields(cl))
-            model_layout.addLayout(colors_layout)
-            model_layout.addWidget(add_color_button)
-
-            parent_layout.addLayout(model_layout)
-            model_fields_list.append((model_name_entry, model_price_entry, model_fee_entry, colors_layout))
-        except Exception as e:
-            print(f"Error adding model fields: {e}")
-
-
     def add_edit_color_stock_fields(self, colors_layout):
         try:
             color_stock_layout = QHBoxLayout()
@@ -1057,26 +1101,29 @@ class InventoryApp(QMainWindow):
             print(f"Error removing product: {e}")
 
     def populate_phone_model_dropdown(self):
+        self.phone_model_dropdown.addItem("(NONE)")
         phone_models = set()
         for index, row in self.inventory_df.iterrows():
             for model in row['Data'].keys():
                 phone_models.add(model)
-        self.phone_model_dropdown.addItem("(NONE)")
         self.phone_model_dropdown.addItems(sorted(phone_models))
+
+    def normalize_phone_model(self, model_name):
+        return ''.join(model_name.split()).lower()
 
     def apply_filters(self):
         try:
             filtered_df = self.inventory_df.copy()
 
             query = self.search_bar.text().lower()
-            selected_phone_model = self.phone_model_dropdown.currentText()
+            selected_phone_model = self.normalize_phone_model(self.phone_model_dropdown.currentText())
             category = self.category_filter.currentText()
 
             if query and query != "search by name":
                 filtered_df = filtered_df[filtered_df['Item Name'].str.lower().str.contains(query)]
 
-            if selected_phone_model and selected_phone_model != "(NONE)":
-                filtered_df = filtered_df[filtered_df['Data'].apply(lambda x: selected_phone_model in x.keys())]
+            if selected_phone_model and selected_phone_model != "(none)":
+                filtered_df = filtered_df[filtered_df['Data'].apply(lambda x: any(self.normalize_phone_model(model) == selected_phone_model for model in x.keys()))]
 
             if category and category != "(NONE)":
                 filtered_df = filtered_df[filtered_df['Category'] == category]
