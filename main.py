@@ -11,6 +11,7 @@ import pandas as pd
 import openpyxl
 from openpyxl.styles import PatternFill
 import shutil
+import re
 
 class InventoryApp(QMainWindow):
     def __init__(self):
@@ -212,14 +213,39 @@ class InventoryApp(QMainWindow):
             if os.path.exists(self.inventory_file):
                 self.inventory_df = pd.read_excel(self.inventory_file)
                 self.inventory_df['Data'] = self.inventory_df['Data'].apply(eval)  # Convert string representation of dict back to dict
+                
+                # Normalize model names and colors
+                self.normalize_model_names_in_inventory()
             else:
                 self.inventory_df = pd.DataFrame(columns=['Item Name', 'Category', 'Data', 'Image Path'])
+            
             self.load_orders()
             self.populate_phone_model_dropdown()
             self.update_inventory_view()
+            
         except Exception as e:
             print(f"Error loading inventory: {e}")
 
+    def normalize_model_names_in_inventory(self):
+        try:
+            for index, row in self.inventory_df.iterrows():
+                normalized_data = {}
+                for model, model_data in row['Data'].items():
+                    normalized_model = self.normalize_model_name(model)
+                    normalized_model_data = {
+                        'Price': model_data.get('Price', 0.0),
+                        'Fee': model_data.get('Fee', 0.0),
+                        'Colors': {color.strip(): stock for color, stock in model_data.get('Colors', {}).items()}
+                    }
+                    normalized_data[normalized_model] = normalized_model_data
+                self.inventory_df.at[index, 'Data'] = normalized_data
+        except Exception as e:
+            print(f"Error normalizing model names in inventory: {e}")
+
+    def normalize_model_name(self, model_name):
+        # Use regex to clean up model name: remove leading/trailing spaces and normalize internal spaces
+        normalized_model = re.sub(r'\s+', ' ', model_name.strip())
+        return normalized_model
 
     def save_inventory(self):
         try:
@@ -670,7 +696,7 @@ class InventoryApp(QMainWindow):
             valid = True
 
             for model_name_entry, model_price_entry, model_fee_entry, colors_layout in self.model_fields:
-                model_name = model_name_entry.text()
+                model_name = model_name_entry.text().strip()
                 model_price = model_price_entry.text()
                 model_fee = model_fee_entry.text()
 
@@ -701,7 +727,9 @@ class InventoryApp(QMainWindow):
                     if not colors:
                         valid = False
 
-                    data[model_name] = {"Price": model_price, "Fee": model_fee, "Colors": colors}
+                    # Normalize model name before adding to data
+                    normalized_model_name = self.normalize_model_name(model_name)
+                    data[normalized_model_name] = {"Price": model_price, "Fee": model_fee, "Colors": colors}
                 else:
                     valid = False
                     break
@@ -717,6 +745,7 @@ class InventoryApp(QMainWindow):
                 QMessageBox.warning(self, "Error", "Please enter valid item details and ensure at least one model with colors and stock.")
         except Exception as e:
             print(f"Error adding item: {e}")
+
 
 
     def add_to_count(self, index):
@@ -899,7 +928,6 @@ class InventoryApp(QMainWindow):
         except Exception as e:
             print(f"Error adding color and stock fields: {e}")
         
-
     def save_product_info(self, index):
         try:
             item_name = self.edit_item_name_entry.text()
@@ -955,8 +983,9 @@ class InventoryApp(QMainWindow):
                 self.save_inventory()
                 QMessageBox.information(self, "Success", "Product information updated.")
                 self.edit_window.close()
+                format_inventory_data()
             else:
-                QMessageBox.warning(self, "Error", "Please enter valid item details and ensure at least one model with colors and stock.")
+                QMessageBox.warning(self, "Error", "Please enter valid item details and ensure at least one model with colors and stock.")    
         except Exception as e:
             print(f"Error saving product info: {e}")
 
@@ -1454,8 +1483,7 @@ class InventoryApp(QMainWindow):
                 self.image_path_entry.setText(target_path)  # Set the relative path
         except Exception as e:
             print(f"Error selecting image: {e}")
-
-
+            
 if __name__ == "__main__":
     try:
         app = QApplication(sys.argv)
