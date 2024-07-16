@@ -585,11 +585,11 @@ class InventoryApp(QMainWindow):
             model_layout.addLayout(colors_layout)
             model_layout.addWidget(add_color_button)
 
-            cancel_button = QPushButton("Cancel", self.add_window)
-            cancel_button.setObjectName("cancelButton")
-            cancel_button.clicked.connect(lambda: self.remove_model_fields(model_widget, model_fields_list, (model_name_entry, model_price_entry, model_fee_entry, colors_layout)))
-            cancel_button.setStyleSheet("""
-                QPushButton#cancelButton {
+            delete_button = QPushButton("Delete", self.add_window)
+            delete_button.setObjectName("deleteButton")
+            delete_button.clicked.connect(lambda: self.remove_model_fields(model_widget, model_fields_list, (model_name_entry, model_price_entry, model_fee_entry, colors_layout)))
+            delete_button.setStyleSheet("""
+                QPushButton#deleteButton {
                     background-color: #d9534f;
                     color: white;
                     font-weight: bold;
@@ -599,7 +599,7 @@ class InventoryApp(QMainWindow):
                     padding: 10px;
                 }
             """)
-            model_layout.addWidget(cancel_button)
+            model_layout.addWidget(delete_button)
 
             parent_layout.addWidget(model_widget)
             fields = (model_name_entry, model_price_entry, model_fee_entry, colors_layout)
@@ -633,11 +633,11 @@ class InventoryApp(QMainWindow):
             model_layout.addLayout(colors_layout)
             model_layout.addWidget(add_color_button)
 
-            cancel_button = QPushButton("Cancel", self.edit_window)
-            cancel_button.setObjectName("cancelButton")
-            cancel_button.clicked.connect(lambda: self.remove_model_fields(model_widget, model_fields_list, (model_name_entry, model_price_entry, model_fee_entry, colors_layout)))
-            cancel_button.setStyleSheet("""
-                QPushButton#cancelButton {
+            delete_button = QPushButton("Delete", self.edit_window)
+            delete_button.setObjectName("deleteButton")
+            delete_button.clicked.connect(lambda: self.remove_model_fields(model_widget, model_fields_list, (model_name_entry, model_price_entry, model_fee_entry, colors_layout)))
+            delete_button.setStyleSheet("""
+                QPushButton#deleteButton {
                     background-color: #d9534f;
                     color: white;
                     font-weight: bold;
@@ -647,7 +647,7 @@ class InventoryApp(QMainWindow):
                     padding: 10px;
                 }
             """)
-            model_layout.addWidget(cancel_button)
+            model_layout.addWidget(delete_button)
 
             parent_layout.addWidget(model_widget)
             fields = (model_name_entry, model_price_entry, model_fee_entry, colors_layout)
@@ -667,6 +667,17 @@ class InventoryApp(QMainWindow):
                 print(f"Fields removed successfully.")
             else:
                 print(f"Fields not found in list: {fields}")
+
+                # Check if the fields belong to an existing model and remove it from the product data
+                for index, product in self.inventory_df.iterrows():
+                    for model, model_data in product['Data'].items():
+                        if model == fields[0].text():  # Assuming the first entry is the model name
+                            del self.inventory_df.at[index, 'Data'][model]
+                            print(f"Removed existing model: {model}")
+                            break
+
+                print(f"Updated product data: {self.inventory_df.at[index, 'Data']}")
+                self.save_inventory()
         except Exception as e:
             print(f"Error removing model fields: {e}")
 
@@ -881,10 +892,26 @@ class InventoryApp(QMainWindow):
                     colors_layout.addLayout(color_stock_layout)
 
                 add_color_button = QPushButton("Add Color and Stock", self.edit_window)
+                add_color_button.setObjectName("addColorButton")
                 add_color_button.clicked.connect(lambda _, cl=colors_layout: self.add_edit_color_stock_fields(cl))
                 model_layout.addLayout(colors_layout)
                 model_layout.addWidget(add_color_button)
-                add_color_button.setObjectName("addColorButton")
+
+                delete_button = QPushButton("Delete", self.edit_window)
+                delete_button.setObjectName("deleteButton")
+                delete_button.clicked.connect(lambda _, mw=model_layout, mf=self.edit_model_fields, f=(model_name_entry, model_price_entry, model_fee_entry, colors_layout): self.remove_model_fields(mw, mf, f))
+                delete_button.setStyleSheet("""
+                    QPushButton#deleteButton {
+                        background-color: #d9534f;
+                        color: white;
+                        font-weight: bold;
+                        text-transform: uppercase;
+                        font-family: Helvetica;
+                        letter-spacing: 0.8rem;
+                        padding: 10px;
+                    }
+                """)
+                model_layout.addWidget(delete_button)
 
                 self.edit_data_layout.addLayout(model_layout)
                 self.edit_model_fields.append((model_name_entry, model_price_entry, model_fee_entry, colors_layout))
@@ -983,7 +1010,6 @@ class InventoryApp(QMainWindow):
                 self.save_inventory()
                 QMessageBox.information(self, "Success", "Product information updated.")
                 self.edit_window.close()
-                format_inventory_data()
             else:
                 QMessageBox.warning(self, "Error", "Please enter valid item details and ensure at least one model with colors and stock.")    
         except Exception as e:
