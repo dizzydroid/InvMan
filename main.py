@@ -137,17 +137,18 @@ class InventoryApp(QMainWindow):
 
         layout = QVBoxLayout()
 
+        # Add "Record Transaction" button with styling
+        transaction_button = QPushButton("Record Transaction", self)
+        transaction_button.setObjectName("transactionButton")
+        transaction_button.setStyleSheet(self.get_button_style())
+        transaction_button.clicked.connect(self.open_transaction_dialog)
+        layout.addWidget(transaction_button)
+
         self.search_bar = QLineEdit(self)
         self.search_bar.setPlaceholderText("Search by name")
         self.search_bar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.search_bar.textChanged.connect(self.apply_filters)
         layout.addWidget(self.search_bar)
-
-        # self.search_phone_model_bar = QLineEdit(self)
-        # self.search_phone_model_bar.setPlaceholderText("Search by phone model")
-        # self.search_phone_model_bar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        # self.search_phone_model_bar.textChanged.connect(self.apply_filters)
-        # layout.addWidget(self.search_phone_model_bar)
 
         self.phone_model_dropdown = QComboBox(self)
         self.phone_model_dropdown.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -204,6 +205,33 @@ class InventoryApp(QMainWindow):
 
         self.showMaximized()
 
+    def get_button_style(self):
+        """Returns a styled button stylesheet with a deep blue-green gradient."""
+        return """
+        QPushButton {
+            background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,
+                                        stop: 0 #0056b3,  /* Deep Blue */
+                                        stop: 1 #007A33); /* Deep Green */
+            color: white;                /* White text */
+            border: none;                /* No border */
+            padding: 10px;               /* Padding */
+            border-radius: 5px;         /* Rounded corners */
+            font-size: 16px;             /* Font size */
+        }
+        QPushButton:hover {
+            background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,
+                                        stop: 0 #004499,  /* Darker Blue */
+                                        stop: 1 #00622e); /* Darker Green */
+        }
+        QPushButton:pressed {
+            background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,
+                                        stop: 0 #003366,   /* Even Darker Blue */
+                                        stop: 1 #005c28);  /* Even Darker Green */
+        }
+    """
+
+
+        
     def ensure_images_directory(self):
         if not os.path.exists("images"):
             os.makedirs("images")
@@ -1413,10 +1441,6 @@ class InventoryApp(QMainWindow):
     
     def track_performance(self):
         try:
-            if not hasattr(self, 'orders_df') or self.orders_df.empty:
-                QMessageBox.warning(self, "Error", "No orders to track performance.")
-                return
-
             # Convert QDate to datetime
             start_date = self.start_date_edit.date().toPyDate()
             end_date = self.end_date_edit.date().toPyDate()
@@ -1427,27 +1451,62 @@ class InventoryApp(QMainWindow):
 
             print(f"Tracking performance from {start_date} to {end_date}")
 
-            # Ensure Date column is in datetime format
-            self.orders_df['Date'] = pd.to_datetime(self.orders_df['Date'], format='%Y-%m-%d %I:%M:%S %p')
+            # Initialize totals
+            total_revenue = 0.0
+            total_refunds = 0.0
+            total_fees = 0.0
+            has_orders = False
+            has_transactions = False
 
-            new_orders = self.orders_df[
-                (self.orders_df['Status'] == 'ORDERED') &
-                (self.orders_df['Date'].between(start_date, end_date))
-            ]
-            new_refunds = self.orders_df[
-                (self.orders_df['Status'] == 'REFUNDED') &
-                (self.orders_df['Date'].between(start_date, end_date))
-            ]
+            # Check orders
+            if hasattr(self, 'orders_df') and not self.orders_df.empty:
+                self.orders_df['Date'] = pd.to_datetime(self.orders_df['Date'], format='%Y-%m-%d %I:%M:%S %p')
 
-            print("New Orders:")
-            print(new_orders)
-            print("New Refunds:")
-            print(new_refunds)
+                new_orders = self.orders_df[
+                    (self.orders_df['Status'] == 'ORDERED') &
+                    (self.orders_df['Date'].between(start_date, end_date))
+                ]
+                new_refunds = self.orders_df[
+                    (self.orders_df['Status'] == 'REFUNDED') &
+                    (self.orders_df['Date'].between(start_date, end_date))
+                ]
 
-            total_revenue = new_orders['Net Profit'].sum()
-            total_refunds = new_refunds['Net Profit'].sum()
-            net_profit = total_revenue + total_refunds  # Refunds are stored as negative values
+                if not new_orders.empty:
+                    total_revenue = new_orders['Net Profit'].sum()
+                    has_orders = True
 
+                if not new_refunds.empty:
+                    total_refunds = new_refunds['Net Profit'].sum()
+
+            # Check transactions
+            if os.path.exists('Transactions.xlsx'):
+                transactions_df = pd.read_excel('Transactions.xlsx')
+                transactions_df['Date'] = pd.to_datetime(transactions_df['Date'])
+
+                filtered_transactions = transactions_df[
+                    (transactions_df['Date'] >= start_date) & (transactions_df['Date'] <= end_date)
+                ]
+
+                if not filtered_transactions.empty:
+                    total_fees = filtered_transactions['Fees'].sum()
+                    has_transactions = True
+
+            # Calculate net profit based on what data we have
+            if has_orders and has_transactions:
+                # Calculate profit using orders minus fees from transactions
+                net_profit = total_revenue + total_refunds - total_fees
+            elif has_orders:
+                # Calculate profit using orders only
+                net_profit = total_revenue + total_refunds
+            elif has_transactions:
+                # No orders, only transactions, calculate using fees (negative)
+                net_profit = -total_fees
+            else:
+                # No relevant records in either file
+                QMessageBox.warning(self, "Error", "No data to track performance in the selected date range.")
+                return
+
+            # Create performance entry DataFrame
             performance_entry = pd.DataFrame([{
                 'Start Date': start_date.strftime('%d/%m/%Y'),
                 'End Date': end_date.strftime('%d/%m/%Y'),
@@ -1461,6 +1520,23 @@ class InventoryApp(QMainWindow):
             self.performance_window.close()
         except Exception as e:
             print(f"Error tracking performance: {e}")
+
+    
+
+
+    def calculate_total_fees(self, start_date, end_date):
+        """Calculate total fees from Transactions.xlsx within the specified date range."""
+        total_fees = 0.0
+        if os.path.exists('Transactions.xlsx'):
+            transactions_df = pd.read_excel('Transactions.xlsx')
+            transactions_df['Date'] = pd.to_datetime(transactions_df['Date'])
+
+            filtered_transactions = transactions_df[
+                (transactions_df['Date'] >= start_date) & (transactions_df['Date'] <= end_date)
+            ]
+            total_fees = filtered_transactions['Fees'].sum()
+        
+        return total_fees
 
     def save_performance(self, performance_entry):
         try:
@@ -1497,6 +1573,198 @@ class InventoryApp(QMainWindow):
             workbook.save(performance_file)
         except Exception as e:
             print(f"Error formatting performance sheet: {e}")
+            
+    def open_transaction_dialog(self):
+        """Opens a dialog window for recording a new transaction."""
+        self.transaction_dialog = QDialog(self)
+        self.transaction_dialog.setWindowTitle("Record Transaction")
+        self.transaction_dialog.setGeometry(200, 200, 400, 400)
+        
+        # Apply overall dialog styling
+        self.transaction_dialog.setStyleSheet(self.get_dialog_style())
+
+        dialog_layout = QVBoxLayout()
+        dialog_layout.setSpacing(15)
+
+        # Title of Transaction
+        self.transaction_title_entry = self.create_styled_line_edit("Title of Transaction")
+        dialog_layout.addWidget(self.create_styled_label("Title of Transaction:"))
+        dialog_layout.addWidget(self.transaction_title_entry)
+
+        # Description
+        self.transaction_description_entry = self.create_styled_line_edit("Description")
+        dialog_layout.addWidget(self.create_styled_label("Description:"))
+        dialog_layout.addWidget(self.transaction_description_entry)
+
+        # Date with enhanced visibility
+        self.transaction_date_entry = QDateEdit(self.transaction_dialog)
+        self.transaction_date_entry.setCalendarPopup(True)
+        self.transaction_date_entry.setDate(QDate.currentDate())
+        self.transaction_date_entry.setStyleSheet(self.get_date_edit_style())
+        dialog_layout.addWidget(self.create_styled_label("Date:"))
+        dialog_layout.addWidget(self.transaction_date_entry)
+
+        # Fees
+        self.transaction_fee_entry = self.create_styled_line_edit("Fees")
+        dialog_layout.addWidget(self.create_styled_label("Fees:"))
+        dialog_layout.addWidget(self.transaction_fee_entry)
+
+        # Confirm Transaction Button
+        confirm_button = QPushButton("Confirm Transaction", self.transaction_dialog)
+        confirm_button.setStyleSheet(self.get_button_style())
+        confirm_button.clicked.connect(self.record_transaction)
+        dialog_layout.addWidget(confirm_button)
+
+        self.transaction_dialog.setLayout(dialog_layout)
+        self.transaction_dialog.exec_()
+
+    def create_styled_line_edit(self, placeholder_text):
+        line_edit = QLineEdit(self.transaction_dialog)
+        line_edit.setPlaceholderText(placeholder_text)
+        line_edit.setStyleSheet(self.get_input_style())
+        return line_edit
+
+    def create_styled_label(self, text):
+        label = QLabel(text, self.transaction_dialog)
+        label.setStyleSheet(self.get_label_style())
+        return label
+
+    def get_dialog_style(self):
+        return """
+        QDialog {
+            background-color: #f0f4f8;
+            border-radius: 10px;
+        }
+        """
+
+    def get_label_style(self):
+        return """
+        QLabel {
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        """
+
+    def get_input_style(self):
+        return """
+        QLineEdit {
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+            background-color: white;
+        }
+        QLineEdit:focus {
+            border: 2px solid #3498db;
+        }
+        """
+
+    def get_date_edit_style(self):
+        return """
+        QDateEdit {
+            padding: 10px;
+            font-size: 14px;
+            border: 2px solid #3498db;
+            border-radius: 5px;
+            background-color: white;
+            color: #2c3e50;
+        }
+        QDateEdit::drop-down {
+            subcontrol-origin: padding;
+            subcontrol-position: top right;
+            width: 30px;
+            border-left: 2px solid #3498db;
+            border-top-right-radius: 3px;
+            border-bottom-right-radius: 3px;
+        }
+        QDateEdit::down-arrow {
+            image: url(calendar-icon.png);
+            width: 20px;
+            height: 20px;
+        }
+        QCalendarWidget QAbstractItemView:enabled {
+            font-size: 14px;
+            color: #2c3e50;
+            background-color: white;
+            selection-background-color: #3498db;
+            selection-color: white;
+        }
+        QCalendarWidget QWidget#qt_calendar_navigationbar {
+            background-color: #3498db;
+        }
+        QCalendarWidget QToolButton {
+            color: white;
+            background-color: transparent;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        QCalendarWidget QToolButton:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        """
+
+    def get_button_style(self):
+        """Returns a styled button stylesheet with a deep purple gradient."""
+        return """
+        QPushButton {
+            background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,
+                                        stop: 0 #4A0E4E,  /* Deep Purple */
+                                        stop: 1 #7B1FA2); /* Lighter Purple */
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        QPushButton:hover {
+            background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,
+                                        stop: 0 #3C0C40,  /* Darker Purple */
+                                        stop: 1 #6A1B9A); /* Slightly Darker Purple */
+        }
+        QPushButton:pressed {
+            background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,
+                                        stop: 0 #2E0934,   /* Even Darker Purple */
+                                        stop: 1 #5E1A8C);  /* Even Darker Purple */
+            padding: 14px 18px 10px 22px; /* Slight shift effect */
+        }
+        """
+
+    def record_transaction(self):
+        """Records the transaction details into Transactions.xlsx."""
+        try:
+            # Get input values
+            title = self.transaction_title_entry.text()
+            description = self.transaction_description_entry.text()
+            date = self.transaction_date_entry.date().toString("yyyy-MM-dd")
+            fees = float(self.transaction_fee_entry.text()) if self.transaction_fee_entry.text() else 0.0
+
+            # Create a new transaction entry
+            new_transaction = pd.DataFrame([{
+                'Title': title,
+                'Description': description,
+                'Date': date,
+                'Fees': fees
+            }])
+
+            # Load or create Transactions.xlsx
+            if os.path.exists('Transactions.xlsx'):
+                transactions_df = pd.read_excel('Transactions.xlsx')
+                transactions_df = pd.concat([transactions_df, new_transaction], ignore_index=True)
+            else:
+                transactions_df = new_transaction
+
+            # Save the updated transactions data
+            transactions_df.to_excel('Transactions.xlsx', index=False)
+
+            QMessageBox.information(self, "Transaction Recorded", "The transaction has been successfully recorded.")
+            self.transaction_dialog.close()
+
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to record transaction: {e}")
 
     def select_image(self):
         try:
